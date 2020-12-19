@@ -1,15 +1,24 @@
 #include <iostream>
-#include "project1.h"
+
+#include "student.h"
 
 using namespace std;
+using namespace nlohmann;
 
-int main() {
-	cout << "do stuff" << endl;
-	int x = 4;
-	cout << x << endl;
-	independentMethod(x);
-	cout << x << endl;
-	Project1 p;
-	p.foo(x);
-	cout << x << endl;
+int main(int n, char* arr[]) {
+	if (n != 1) {
+		string path = arr[1];
+		ifstream input(path);
+		if (input) {
+			nlohmann::json js;
+			input >> js;
+			parseJS(js);
+		}
+		else {
+			cout << "unable to open json: " + path << endl;
+		}
+	}
+	else {
+		cout << "No arguments found!" << endl;
+	}
 }
