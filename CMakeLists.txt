@@ -1,77 +1,71 @@
-cmake_minimum_required(VERSION 3.1)
-
-# Make PROJECT_SOURCE_DIR, PROJECT_BINARY_DIR, and PROJECT_NAME available.
-set(PROJECT_NAME project1)
-project(${PROJECT_NAME})
-
-set(CMAKE_CXX_FLAGS "-g -Wall")
-
-# If you want your own include/ directory, set this, and then you can do
-# include_directories(${COMMON_INCLUDES}) in other CMakeLists.txt files.
-# set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include)
-
-#----------------------------------------------------------------------------
-# Define project sources and includes
-#----------------------------------------------------------------------------
-set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include)
-include_directories(${COMMON_INCLUDES})
-file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
-file(GLOB TEST_SRC_FILES ${PROJECT_SOURCE_DIR}/test/*.cpp)
-list(REMOVE_ITEM SRC_FILES ${PROJECT_SOURCE_DIR}/src/main.cpp)
+cmake_minimum_required(VERSION 3.4)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-################################
-# Normal Libraries & Executables
-################################
-add_library(project1_lib ${SRC_FILES})
-add_executable(project1 ${PROJECT_SOURCE_DIR}/src/main.cpp)
-# Key idea: SEPARATE OUT your main() function into its own file so it can be its
-# own executable. Separating out main() means you can add this library to be
-# used elsewhere (e.g linking to the test executable).
+option(BUILD_COVERAGE "Build coverage" OFF)
 
-target_link_libraries(project1 project1_lib)
+set(
+  HUNTER_CACHE_SERVERS
+  "https://github.com/bmstu-iu8-cpp-sem-3/hunter-cache"
+  CACHE STRING "Default cache server"
+)
 
-################################
-# Testing
-################################
+include("tools/gate/cmake/HunterGate.cmake")
 
-# Options. Turn on with 'cmake -Dmyvarname=ON'.
-option(BUILD_TESTS "Build all tests." OFF) # Makes boolean 'test' available.
+HunterGate(
+  URL "https://github.com/cpp-pm/hunter/archive/v0.23.278.tar.gz"
+  SHA1 "35fa55bc1dfcf9f4d7264f8bb26cd1759ce1ae07"
+)
 
-if (BUILD_TESTS)
-  # This adds another subdirectory, which has 'project(gtest)'.
-  add_subdirectory(ext/gtest-1.8.0)
+project(parser)
+string(APPEND CMAKE_CXX_FLAGS " -pedantic -Werror -Wall -Wextra")
+string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-command-line-argument")
+string(APPEND CMAKE_CXX_FLAGS " -Wshadow -Wnon-virtual-dtor")
 
-  enable_testing()
+hunter_add_package(GTest)
+find_package(GTest CONFIG REQUIRED)
 
-  # Include the gtest library. gtest_SOURCE_DIR is available due to
-  # 'project(gtest)' above.
-  include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+hunter_add_package(nlohmann_json)
+find_package(nlohmann_json 3.1.4 CONFIG REQUIRED)
 
-  ##############
-  # Unit Tests
-  ##############
-  add_executable(runUnitTests ${TEST_SRC_FILES})
+add_library(parser STATIC
+  # enum your files and delete this comment
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/student.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+)
+add_executable(tests
+  # TODO: enum your files and delete this comment
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_project1.cpp
+)
 
-  # Standard linking to gtest stuff.
-  target_link_libraries(runUnitTests gtest gtest_main)
+# TODO: change template word to project name and delete this comment
+target_include_directories(parser
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_include_directories(tests
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+# TODO: change template word to project name and delete this comment
+target_link_libraries(tests GTest::gtest_main parser)
+target_link_libraries(parser nlohmann_json::nlohmann_json)
 
-  # Extra linking for the project.
-  target_link_libraries(runUnitTests project1_lib)
+enable_testing()
+add_test(NAME unit_tests COMMAND tests)
 
-  # This is so you can do 'make test' to see all your tests run, instead of
-  # manually running the executable runUnitTests to see those specific tests.
-  add_test(UnitTests runUnitTests)
+if(BUILD_COVERAGE)
+  function(ENABLE_PROJECT_COVERAGE PROJECT)
+    target_compile_options(${PROJECT} PRIVATE --coverage)
+    target_link_libraries(${PROJECT} --coverage)
+    add_coverage(${PROJECT})
+  endfunction()
 
-  set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/.travis/cmake)
-
-  if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    include(CodeCoverage)
-    setup_target_for_coverage(${PROJECT_NAME}_coverage runUnitTests coverage)
-
-    SET(CMAKE_CXX_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage")
-    SET(CMAKE_C_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage")
-  endif() #CMAKE_BUILD_TYPE STREQUAL "Coverage"
-
+  set(ENABLE_COVERAGE ON CACHE BOOL "Enable coverage build." FORCE)
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+  find_package(codecov)
+  # TODO: change template word to project name and delete this comment
+  enable_project_coverage(parser)
+  enable_project_coverage(tests)
+  list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/tests/*'")
+  coverage_evaluate()
 endif()
