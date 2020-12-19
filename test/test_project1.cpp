@@ -1,7 +1,7 @@
 #include <iostream>
 #include "gtest/gtest.h"
 
-#include "project1.h"
+#include "student.h"
 #include "json.hpp"
 
 nlohmann::json jst1 = {
